@@ -64,35 +64,40 @@ def setup_magnets(positions: list, magnet_angl: float):
 
 
 def setup_coils(coilA_positions: list, coilB_positions: list, circ_prop: list):
-
+    polarity = 0
     for i in range(len(coilA_positions)):
-        if i % 3 == 0:
+        if i % 4 == 0 or i % 4 == 3:
+            polarity = 1
+        elif i % 4 == 1 or i % 4 == 2:
+            polarity = -1
+
+        if i % 6 == 0 or i % 6 == 1:
             femm.mi_selectlabel(coilA_positions[i][0], coilA_positions[i][1])
-            femm.mi_setblockprop(COIL, 1, 0, circ_prop[2], 0, 0, NUMBER_WINDINGS)
+            femm.mi_setblockprop(COIL, 1, 0, circ_prop[0], 0, 0, polarity*NUMBER_WINDINGS)
             femm.mi_clearselected()
             femm.mi_selectlabel(coilB_positions[i][0], coilB_positions[i][1])
-            femm.mi_setblockprop(COIL, 1, 0, circ_prop[2], 0, 0, -NUMBER_WINDINGS)
+            femm.mi_setblockprop(COIL, 1, 0, circ_prop[0], 0, 0, -polarity*NUMBER_WINDINGS)
             femm.mi_clearselected()
-        elif i % 3 == 1:
+        elif i % 6 == 2 or i % 6 == 3:
             femm.mi_selectlabel(coilA_positions[i][0], coilA_positions[i][1])
-            femm.mi_setblockprop(COIL, 1, 0, circ_prop[1], 0, 0, NUMBER_WINDINGS)
+            femm.mi_setblockprop(COIL, 1, 0, circ_prop[1], 0, 0, polarity*NUMBER_WINDINGS)
             femm.mi_clearselected()
             femm.mi_selectlabel(coilB_positions[i][0], coilB_positions[i][1])
-            femm.mi_setblockprop(COIL, 1, 0, circ_prop[1], 0, 0, -NUMBER_WINDINGS)
+            femm.mi_setblockprop(COIL, 1, 0, circ_prop[1], 0, 0, -polarity*NUMBER_WINDINGS)
             femm.mi_clearselected()
-        else:
+        elif i % 6 == 4 or i % 6 == 5:
             femm.mi_selectlabel(coilA_positions[i][0], coilA_positions[i][1])
-            femm.mi_setblockprop(COIL, 1, 0, circ_prop[0], 0, 0, NUMBER_WINDINGS)
+            femm.mi_setblockprop(COIL, 1, 0, circ_prop[2], 0, 0, polarity*NUMBER_WINDINGS)
             femm.mi_clearselected()
             femm.mi_selectlabel(coilB_positions[i][0], coilB_positions[i][1])
-            femm.mi_setblockprop(COIL, 1, 0, circ_prop[0], 0, 0, -NUMBER_WINDINGS)
+            femm.mi_setblockprop(COIL, 1, 0, circ_prop[2], 0, 0, -polarity*NUMBER_WINDINGS)
             femm.mi_clearselected()
 
 
 # Initialize FEMM Magnetic Problem
 femm.openfemm()
 femm.newdocument(0)
-femm.mi_probdef(0, 'millimeters', 'planar', 1E-8, 20, 20, 0)
+femm.mi_probdef(0, 'millimeters', 'planar', 1E-8, 20, 30)
 femm.mi_readdxf("Input DXFs/" + FILENAME + ".dxf")
 femm.mi_zoomnatural()
 
@@ -107,33 +112,39 @@ femm.mi_addcircprop(circ_props[0], PHASE_A, 1)
 femm.mi_addcircprop(circ_props[1], PHASE_B, 1)
 femm.mi_addcircprop(circ_props[2], PHASE_C, 1)
 
+# Setup Boundaries
+bc_properties = ['A = 0']
+femm.mi_addboundprop(bc_properties[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+
 # Define the position of the stator, rotor, magnet, and coils
+magnet_angle = 2 * math.pi / POLES
+slot_r = STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA / 2
+slot_angle = 2 * math.pi / SLOTS
+
 air_position = [0, 2 * STATOR_ID - 1]
 stator_position = [0, STATOR_ID / 2 + STATOR_BASE / 2]
-
 rotor_position = [0,
                   STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP
                   + MAGNET_THK + ROTOR_THK / 2]
-
 magnet_positions = [[0,
                      STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP
                      + MAGNET_THK / 2]]
-
-magnet_angle = 2 * math.pi / POLES
-
-slot_r = STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA / 2
-slot_angle = 2 * math.pi / SLOTS
-slot_position = [slot_r * math.sin(5 * slot_angle / 2), slot_r * math.cos(5 * slot_angle / 2)]
-
+slot_position = [-slot_r * math.sin(5 * slot_angle / 2), slot_r * math.cos(5 * slot_angle / 2)]
 coil1_positions = [[slot_position[0] - (TOOTH_WIDTH + WIRE_DIA) / 2 * math.cos(5 * slot_angle / 2),
-                    slot_position[1] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.sin(5 * slot_angle / 2)]]
-coil2_positions = [[slot_position[0] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.cos(5 * slot_angle / 2),
                     slot_position[1] - (TOOTH_WIDTH + WIRE_DIA) / 2 * math.sin(5 * slot_angle / 2)]]
+coil2_positions = [[slot_position[0] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.cos(5 * slot_angle / 2),
+                    slot_position[1] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.sin(5 * slot_angle / 2)]]
 
 # Add air position & set material
+femm.mi_addblocklabel(0, 0)
 femm.mi_addblocklabel(air_position[0], air_position[1])
 femm.mi_selectlabel(air_position[0], air_position[1])
+femm.mi_selectlabel(0, 0)
 femm.mi_setblockprop(AIR)
+femm.mi_clearselected()
+femm.mi_selectarcsegment(air_position[0], air_position[1])
+femm.mi_selectarcsegment(air_position[0], -air_position[1])
+femm.mi_setarcsegmentprop(0, bc_properties[0], 0, 0)
 femm.mi_clearselected()
 
 # Add stator base position and modify & set materials
@@ -158,11 +169,31 @@ setup_magnets(magnet_positions, magnet_angle)
 
 # Add coil1 positions
 femm.mi_addblocklabel(coil1_positions[0][0], coil1_positions[0][1])
-circ_pattern([coil1_positions[0][0], coil1_positions[0][1]], slot_angle, 5, 1, coil1_positions)
+circ_pattern([coil1_positions[0][0], coil1_positions[0][1]], slot_angle, 5, -1, coil1_positions)
 
 # Add coil2 positions
 femm.mi_addblocklabel(coil2_positions[0][0], coil2_positions[0][1])
-circ_pattern([coil2_positions[0][0], coil2_positions[0][1]], slot_angle, 5, 1, coil2_positions)
+circ_pattern([coil2_positions[0][0], coil2_positions[0][1]], slot_angle, 5, -1, coil2_positions)
 
+# Set up the coils
 setup_coils(coil1_positions, coil2_positions, circ_props)
+
+# Run the simulation
+femm.mi_saveas('temp.fem')
+femm.mi_analyze()
+femm.mi_loadsolution()
+
+# Setup post processor
+femm.mo_hidecontourplot()
+femm.mo_zoom(-STATOR_ID, -STATOR_ID, STATOR_ID, STATOR_ID)
+femm.mo_showdensityplot(1, 0, 2, 0, 'bmag')
+
+# Calculate Torque
+femm.mo_selectblock(rotor_position[0],rotor_position[1])
+for i in range(len(magnet_positions)):
+    femm.mo_selectblock(magnet_positions[i][0], magnet_positions[i][1])
+a = femm.mo_blockintegral(22)
+femm.mo_clearblock()
+print("Torque is " + str(a) + " N-m")
+
 input(0)
