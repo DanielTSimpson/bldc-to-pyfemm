@@ -36,7 +36,7 @@ import requests
 import json
 
 
-d_id = "4833676df7d2a808ac4b52b7"
+d_id = "1904c992d834db0627d33fe5"
 
 # Assemble the URL for the API call
 api_url = "https://cad.onshape.com/api/documents/" + d_id
@@ -66,6 +66,6 @@ response = requests.get(api_url,
 #     print(f"Error: {response.status_code}")
 #     print(response.text)
 
-print(response.json())
+#print(response.json())
 
-# print(json.dumps(response.json()["name"], indent=4))
+print(json.dumps(response.json()["name"], indent=4))
