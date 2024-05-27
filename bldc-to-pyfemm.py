@@ -16,7 +16,7 @@ PHASE_B = params[6].split(',')[1][1:]
 PHASE_C = params[7].split(',')[1][1:]
 
 ### Get BLDC dimensions
-FILENAME = "36_38_20_122_4_0.9_2_1.5_3_10_3_0.75_3"
+FILENAME = "36_38_20_122_4_0.9_2_1.5_3_10_3_0.75_3_slidingband"
 # FILENAME = "72_76_20_300_4_0.9_2_1.5_6_10_6_0.75_3"
 properties = FILENAME.split("_")
 
@@ -108,21 +108,25 @@ f.mi_getmaterial(MAGNET)
 f.mi_getmaterial(ROTOR)
 f.mi_getmaterial(STATOR)
 f.mi_getmaterial(COIL)
-circ_props = ['Phase A', 'Phase B', 'Phase C']
-f.mi_addcircprop(circ_props[0], PHASE_A, 1)
-f.mi_addcircprop(circ_props[1], PHASE_B, 1)
-f.mi_addcircprop(circ_props[2], PHASE_C, 1)
+circ_names = ['Phase A', 'Phase B', 'Phase C']
+f.mi_addcircprop(circ_names[0], PHASE_A, 1)
+f.mi_addcircprop(circ_names[1], PHASE_B, 1)
+f.mi_addcircprop(circ_names[2], PHASE_C, 1)
 
 # Setup Boundaries
-bc_properties = ['A = 0']
+bc_properties = ['A = 0', 'slidingBand']
 f.mi_addboundprop(bc_properties[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+f.mi_addboundprop(bc_properties[1], 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0)
 
 # Define the position of the stator, rotor, magnet, and coils
 magnet_angle = 2 * math.pi / POLES
 slot_r = STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA / 2
 slot_angle = 2 * math.pi / SLOTS
 
-air_position = [0, 2 * STATOR_ID - 1]
+outer_air_position = [0, 2 * STATOR_ID - 1]
+stator_air_position = [STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT, 0]
+rotor_air_position = [-(STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP), 0]
+no_mesh_position = [STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + 0.3, 0]
 stator_position = [0, STATOR_ID / 2 + STATOR_BASE / 2]
 rotor_position = [0,
                   STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP
@@ -137,15 +141,38 @@ coil2_positions = [[slot_position[0] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.cos(5
                     slot_position[1] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.sin(5 * slot_angle / 2)]]
 
 # Add air position & set material
-f.mi_addblocklabel(0, 0)
-f.mi_addblocklabel(air_position[0], air_position[1])
-f.mi_selectlabel(air_position[0], air_position[1])
-f.mi_selectlabel(0, 0)
+f.mi_addblocklabel(outer_air_position[0], outer_air_position[1])
+f.mi_addblocklabel(rotor_air_position[0], rotor_air_position[1])
+f.mi_addblocklabel(stator_air_position[0], stator_air_position[1])
+f.mi_selectlabel(outer_air_position[0], outer_air_position[1])
+f.mi_selectlabel(rotor_air_position[0], rotor_air_position[1])
+f.mi_selectlabel(stator_air_position[0], stator_air_position[1])
 f.mi_setblockprop(AIR)
 f.mi_clearselected()
-f.mi_selectarcsegment(air_position[0], air_position[1])
-f.mi_selectarcsegment(air_position[0], -air_position[1])
+
+# Add outer perimeter boundary condition
+f.mi_selectarcsegment(outer_air_position[0], outer_air_position[1])
+f.mi_selectarcsegment(outer_air_position[0], -outer_air_position[1])
 f.mi_setarcsegmentprop(0, bc_properties[0], 0, 0)
+f.mi_clearselected()
+
+
+# Add sliding band boundary condition
+f.mi_selectarcsegment(rotor_air_position[0], rotor_air_position[1]+1)
+f.mi_selectarcsegment(rotor_air_position[0], rotor_air_position[1]-1)
+f.mi_setarcsegmentprop(0, bc_properties[1], 0, 0)
+f.mi_clearselected()
+
+f.mi_selectarcsegment(stator_air_position[0], stator_air_position[1]+1)
+f.mi_selectarcsegment(stator_air_position[0], stator_air_position[1]-1)
+f.mi_setarcsegmentprop(0, bc_properties[1], 0, 0)
+f.mi_clearselected()
+
+
+# Add & set no mesh zone
+f.mi_addblocklabel(no_mesh_position[0], no_mesh_position[1])
+f.mi_selectlabel(no_mesh_position[0], no_mesh_position[1])
+f.mi_setblockprop("<No Mesh>")
 f.mi_clearselected()
 
 # Add stator base position and modify & set materials
@@ -177,7 +204,7 @@ f.mi_addblocklabel(coil2_positions[0][0], coil2_positions[0][1])
 circ_pattern([coil2_positions[0][0], coil2_positions[0][1]], slot_angle, 5, -1, coil2_positions)
 
 # Set up the coils
-setup_coils(coil1_positions, coil2_positions, circ_props)
+setup_coils(coil1_positions, coil2_positions, circ_names)
 
 # Run the simulation
 f.mi_saveas('temp.fem')
@@ -197,5 +224,5 @@ torque = f.mo_blockintegral(22)
 f.mo_clearblock()
 
 print("Torque is {:.4f} N-m".format(torque))
-
-input(0)
+print(f.mo_getcircuitproperties(circ_names[0])) #*[0;0;1]
+input(0)    
