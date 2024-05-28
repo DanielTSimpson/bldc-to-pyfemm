@@ -97,6 +97,7 @@ def setup_coils(coilA_positions: list, coilB_positions: list, circ_prop: list):
 
 # Initialize FEMM Magnetic Problem
 f.openfemm()
+print("Running...")
 f.newdocument(0)
 f.mi_probdef(0, 'millimeters', 'planar', 1E-8, 20, 30)
 f.mi_readdxf("Input DXFs/" + FILENAME + ".dxf")
@@ -206,8 +207,11 @@ circ_pattern([coil2_positions[0][0], coil2_positions[0][1]], slot_angle, 5, -1, 
 # Set up the coils
 setup_coils(coil1_positions, coil2_positions, circ_names)
 
+
 # Run the simulation
 f.mi_saveas('temp.fem')
+
+"""
 f.mi_analyze()
 f.mi_loadsolution()
 
@@ -222,7 +226,29 @@ for i in range(len(magnet_positions)):
     f.mo_selectblock(magnet_positions[i][0], magnet_positions[i][1])
 torque = f.mo_blockintegral(22)
 f.mo_clearblock()
-
 print("Torque is {:.4f} N-m".format(torque))
-print(f.mo_getcircuitproperties(circ_names[0])) #*[0;0;1]
-input(0)    
+print(f.mo_getcircuitproperties(circ_names[0])) #*[0;0;1]  
+f.mo_close()"""
+
+# Calculate torque from 0 to 90 degrees in 10 degree intervals
+for i in range(40,45,5):
+    f.mi_modifyboundprop(bc_properties[1], 11, i*math.pi/180)
+    f.mi_analyze()
+    f.mi_loadsolution()
+
+    # Setup post processor
+    f.mo_hidecontourplot()
+    f.mo_zoom(-STATOR_ID, -STATOR_ID, STATOR_ID, STATOR_ID)
+    f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
+
+    f.mo_selectblock(rotor_position[0], rotor_position[1])
+    for j in range(len(magnet_positions)):
+        f.mo_selectblock(magnet_positions[j][0], magnet_positions[j][1])
+
+    torque = f.mo_blockintegral(22)
+    f.mo_clearblock()
+    print("Torque is {:.4f} N-m ".format(torque)) 
+    print("for {:.1f} degrees\n".format(i))
+    input(0)
+    f.mo_close()
+f.mi_close()

@@ -1,7 +1,7 @@
 import femm as f
 
 f.openfemm()
-f.opendocument("StatorTestFEMM.fem")
+f.opendocument("StatorFEMM.fem")
 input(0)
 
 circ_props = ['Phase A', 'Phase B', 'Phase C']
