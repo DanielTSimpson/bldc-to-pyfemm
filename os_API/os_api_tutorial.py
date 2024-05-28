@@ -34,7 +34,7 @@
 
 import requests
 import json
-
+import base64
 
 d_id = "1904c992d834db0627d33fe5"
 
@@ -45,7 +45,12 @@ api_url = "https://cad.onshape.com/api/documents/" + d_id
 params = {}
 
 # Use the encoded authorization string you created from your API Keys.
-api_key = "UGxDWkRnQ3g1SEs3UHJMbjduazQ1WkFBOklnMXlXUG9FbTJNa3lIVkE4WXc0UzVHUTVIWGxKTHAzOXJkd3I0TE5xNnhNWjVI"
+access_key = "PlCZDgCx5HK7PrLn7nk45ZAA"
+secret_key = "AIg1yWPoEm2MkyHVA8Yw4S5GQ5HXlJLp39rdwr4LNq6xMZ5H"
+
+#use base64 to generate the api key from the access and secret keys (ensures updated key is used every time a doc is called)
+credentials = access_key + ":" + secret_key
+api_key = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
 
 # Define the header for the request
 headers = {'Accept': 'application/json;charset=UTF-8;qs=0.09',
@@ -57,15 +62,15 @@ response = requests.get(api_url,
                         params=params,
                         headers=headers)
 
-# # Check if the request was successful
-# if response.status_code == 200:
-#     # Convert the response to formatted JSON and print the `name` property
-#     print(json.dumps(response.json()["name"], indent=4))
-# else:
-#     # Print error message if the request was unsuccessful
-#     print(f"Error: {response.status_code}")
-#     print(response.text)
+# Check if the request was successful
+if response.status_code == 200:
+    # Convert the response to formatted JSON and print the `name` property
+    print(json.dumps(response.json()["name"], indent=4))
+else:
+    # Print error message if the request was unsuccessful
+    print(f"Error: {response.status_code}")
+    print(response.text)
 
-#print(response.json())
+# print(response.json())
 
-print(json.dumps(response.json()["name"], indent=4))
+# print(json.dumps(response.json()["name"], indent=4))
