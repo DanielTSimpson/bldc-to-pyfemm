@@ -34,7 +34,6 @@ MAGNET_THK = float(properties[10])
 MAGNET_STATOR_GAP = float(properties[11])
 ROTOR_THK = float(properties[12])
 
-
 def circ_pattern(start_pos: list, angle: float, num_copies: int, direction: int, save_array: list = None):
     """
     Adds block labels in a circular pattern
@@ -53,7 +52,6 @@ def circ_pattern(start_pos: list, angle: float, num_copies: int, direction: int,
         if save_array:
             save_array.append([x, y])
 
-
 def setup_magnets(positions: list, magnet_angl: float):
     for i in range(len(positions)):
         f.mi_selectlabel(positions[i][0], positions[i][1])
@@ -62,7 +60,6 @@ def setup_magnets(positions: list, magnet_angl: float):
         else:
             f.mi_setblockprop(MAGNET, 1, 0, '', 270 + i * (magnet_angl * 180 / math.pi))
         f.mi_clearselected()
-
 
 def setup_coils(coilA_positions: list, coilB_positions: list, circ_prop: list):
     polarity = 0
@@ -94,152 +91,135 @@ def setup_coils(coilA_positions: list, coilB_positions: list, circ_prop: list):
             f.mi_setblockprop(COIL, 1, 0, circ_prop[2], 0, 0, -polarity * NUMBER_WINDINGS)
             f.mi_clearselected()
 
+def setup_model():  
+    # Initialize FEMM Magnetic Problem
+    f.openfemm(1)
+    print("Running...")
+    f.newdocument(0)
+    f.mi_probdef(0, 'millimeters', 'planar', 1E-8, 20, 45)
+    f.mi_readdxf("Input DXFs/" + FILENAME + ".dxf")
+    f.mi_zoomnatural()
 
-# Initialize FEMM Magnetic Problem
-f.openfemm()
-print("Running...")
-f.newdocument(0)
-f.mi_probdef(0, 'millimeters', 'planar', 1E-8, 20, 30)
-f.mi_readdxf("Input DXFs/" + FILENAME + ".dxf")
-f.mi_zoomnatural()
+    # Setup Materials
+    f.mi_getmaterial(AIR)
+    f.mi_getmaterial(MAGNET)
+    f.mi_getmaterial(ROTOR)
+    f.mi_getmaterial(STATOR)
+    f.mi_getmaterial(COIL)
+    circ_names = ['Phase A', 'Phase B', 'Phase C']
+    f.mi_addcircprop(circ_names[0], PHASE_A, 1)
+    f.mi_addcircprop(circ_names[1], PHASE_B, 1)
+    f.mi_addcircprop(circ_names[2], PHASE_C, 1)
 
-# Setup Materials
-f.mi_getmaterial(AIR)
-f.mi_getmaterial(MAGNET)
-f.mi_getmaterial(ROTOR)
-f.mi_getmaterial(STATOR)
-f.mi_getmaterial(COIL)
-circ_names = ['Phase A', 'Phase B', 'Phase C']
-f.mi_addcircprop(circ_names[0], PHASE_A, 1)
-f.mi_addcircprop(circ_names[1], PHASE_B, 1)
-f.mi_addcircprop(circ_names[2], PHASE_C, 1)
+    # Setup Boundaries
+    bc_properties = ['A = 0', 'slidingBand']
+    f.mi_addboundprop(bc_properties[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    f.mi_addboundprop(bc_properties[1], 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0)
 
-# Setup Boundaries
-bc_properties = ['A = 0', 'slidingBand']
-f.mi_addboundprop(bc_properties[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-f.mi_addboundprop(bc_properties[1], 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0)
+    # Define the position of the stator, rotor, magnet, and coils
+    magnet_angle = 2 * math.pi / POLES
+    slot_r = STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA / 2
+    slot_angle = 2 * math.pi / SLOTS
 
-# Define the position of the stator, rotor, magnet, and coils
-magnet_angle = 2 * math.pi / POLES
-slot_r = STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA / 2
-slot_angle = 2 * math.pi / SLOTS
+    outer_air_position = [0, 2 * STATOR_ID - 1]
+    stator_air_position = [STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT, 0]
+    rotor_air_position = [-(STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP), 0]
+    no_mesh_position = [STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + 0.3, 0]
+    stator_position = [0, STATOR_ID / 2 + STATOR_BASE / 2]
+    rotor_position = [0,
+                    STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP
+                    + MAGNET_THK + ROTOR_THK / 2]
+    magnet_positions = [[0,
+                        STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP
+                        + MAGNET_THK / 2]]
+    slot_position = [-slot_r * math.sin(5 * slot_angle / 2), slot_r * math.cos(5 * slot_angle / 2)]
+    coil1_positions = [[slot_position[0] - (TOOTH_WIDTH + WIRE_DIA) / 2 * math.cos(5 * slot_angle / 2),
+                        slot_position[1] - (TOOTH_WIDTH + WIRE_DIA) / 2 * math.sin(5 * slot_angle / 2)]]
+    coil2_positions = [[slot_position[0] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.cos(5 * slot_angle / 2),
+                        slot_position[1] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.sin(5 * slot_angle / 2)]]
 
-outer_air_position = [0, 2 * STATOR_ID - 1]
-stator_air_position = [STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT, 0]
-rotor_air_position = [-(STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP), 0]
-no_mesh_position = [STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + 0.3, 0]
-stator_position = [0, STATOR_ID / 2 + STATOR_BASE / 2]
-rotor_position = [0,
-                  STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP
-                  + MAGNET_THK + ROTOR_THK / 2]
-magnet_positions = [[0,
-                     STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP
-                     + MAGNET_THK / 2]]
-slot_position = [-slot_r * math.sin(5 * slot_angle / 2), slot_r * math.cos(5 * slot_angle / 2)]
-coil1_positions = [[slot_position[0] - (TOOTH_WIDTH + WIRE_DIA) / 2 * math.cos(5 * slot_angle / 2),
-                    slot_position[1] - (TOOTH_WIDTH + WIRE_DIA) / 2 * math.sin(5 * slot_angle / 2)]]
-coil2_positions = [[slot_position[0] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.cos(5 * slot_angle / 2),
-                    slot_position[1] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.sin(5 * slot_angle / 2)]]
+    # Add air position & set material
+    f.mi_addblocklabel(outer_air_position[0], outer_air_position[1])
+    f.mi_addblocklabel(rotor_air_position[0], rotor_air_position[1])
+    f.mi_addblocklabel(stator_air_position[0], stator_air_position[1])
+    f.mi_selectlabel(outer_air_position[0], outer_air_position[1])
+    f.mi_selectlabel(rotor_air_position[0], rotor_air_position[1])
+    f.mi_selectlabel(stator_air_position[0], stator_air_position[1])
+    f.mi_setblockprop(AIR)
+    f.mi_clearselected()
 
-# Add air position & set material
-f.mi_addblocklabel(outer_air_position[0], outer_air_position[1])
-f.mi_addblocklabel(rotor_air_position[0], rotor_air_position[1])
-f.mi_addblocklabel(stator_air_position[0], stator_air_position[1])
-f.mi_selectlabel(outer_air_position[0], outer_air_position[1])
-f.mi_selectlabel(rotor_air_position[0], rotor_air_position[1])
-f.mi_selectlabel(stator_air_position[0], stator_air_position[1])
-f.mi_setblockprop(AIR)
-f.mi_clearselected()
+    # Add outer perimeter boundary condition
+    f.mi_selectarcsegment(outer_air_position[0], outer_air_position[1])
+    f.mi_selectarcsegment(outer_air_position[0], -outer_air_position[1])
+    f.mi_setarcsegmentprop(0, bc_properties[0], 0, 0)
+    f.mi_clearselected()
 
-# Add outer perimeter boundary condition
-f.mi_selectarcsegment(outer_air_position[0], outer_air_position[1])
-f.mi_selectarcsegment(outer_air_position[0], -outer_air_position[1])
-f.mi_setarcsegmentprop(0, bc_properties[0], 0, 0)
-f.mi_clearselected()
+    # Add sliding band boundary condition
+    f.mi_selectarcsegment(rotor_air_position[0], rotor_air_position[1]+1)
+    f.mi_selectarcsegment(rotor_air_position[0], rotor_air_position[1]-1)
+    f.mi_setarcsegmentprop(0, bc_properties[1], 0, 0)
+    f.mi_clearselected()
 
+    f.mi_selectarcsegment(stator_air_position[0], stator_air_position[1]+1)
+    f.mi_selectarcsegment(stator_air_position[0], stator_air_position[1]-1)
+    f.mi_setarcsegmentprop(0, bc_properties[1], 0, 0)
+    f.mi_clearselected()
 
-# Add sliding band boundary condition
-f.mi_selectarcsegment(rotor_air_position[0], rotor_air_position[1]+1)
-f.mi_selectarcsegment(rotor_air_position[0], rotor_air_position[1]-1)
-f.mi_setarcsegmentprop(0, bc_properties[1], 0, 0)
-f.mi_clearselected()
+    # Add & set no mesh zone
+    f.mi_addblocklabel(no_mesh_position[0], no_mesh_position[1])
+    f.mi_selectlabel(no_mesh_position[0], no_mesh_position[1])
+    f.mi_setblockprop("<No Mesh>")
+    f.mi_clearselected()
 
-f.mi_selectarcsegment(stator_air_position[0], stator_air_position[1]+1)
-f.mi_selectarcsegment(stator_air_position[0], stator_air_position[1]-1)
-f.mi_setarcsegmentprop(0, bc_properties[1], 0, 0)
-f.mi_clearselected()
+    # Add stator base position and modify & set materials
+    f.mi_addblocklabel(stator_position[0], stator_position[1])
+    f.mi_modifymaterial(STATOR, 9, 0)  # Set lamination in plane
+    f.mi_modifymaterial(STATOR, 8, 0.98)  # Set lamination fill fraction
+    f.mi_modifymaterial(STATOR, 6, 0.635)  # Set lamination thickness
+    f.mi_selectlabel(stator_position[0], stator_position[1])
+    f.mi_setblockprop(STATOR)
+    f.mi_clearselected()
 
+    # Add rotor positions & set materials
+    f.mi_addblocklabel(rotor_position[0], rotor_position[1])
+    f.mi_selectlabel(rotor_position[0], rotor_position[1])
+    f.mi_setblockprop(ROTOR)
+    f.mi_clearselected()
 
-# Add & set no mesh zone
-f.mi_addblocklabel(no_mesh_position[0], no_mesh_position[1])
-f.mi_selectlabel(no_mesh_position[0], no_mesh_position[1])
-f.mi_setblockprop("<No Mesh>")
-f.mi_clearselected()
+    # Add magnet positions
+    f.mi_addblocklabel(magnet_positions[0][0], magnet_positions[0][1])
+    circ_pattern([magnet_positions[0][0], magnet_positions[0][1]], magnet_angle, int(POLES) - 1, 1, magnet_positions)
+    setup_magnets(magnet_positions, magnet_angle)
 
-# Add stator base position and modify & set materials
-f.mi_addblocklabel(stator_position[0], stator_position[1])
-f.mi_modifymaterial(STATOR, 9, 0)  # Set lamination in plane
-f.mi_modifymaterial(STATOR, 8, 0.98)  # Set lamination fill fraction
-f.mi_modifymaterial(STATOR, 6, 0.635)  # Set lamination thickness
-f.mi_selectlabel(stator_position[0], stator_position[1])
-f.mi_setblockprop(STATOR)
-f.mi_clearselected()
+    # Add coil1 positions
+    f.mi_addblocklabel(coil1_positions[0][0], coil1_positions[0][1])
+    circ_pattern([coil1_positions[0][0], coil1_positions[0][1]], slot_angle, 5, -1, coil1_positions)
 
-# Add rotor positions & set materials
-f.mi_addblocklabel(rotor_position[0], rotor_position[1])
-f.mi_selectlabel(rotor_position[0], rotor_position[1])
-f.mi_setblockprop(ROTOR)
-f.mi_clearselected()
+    # Add coil2 positions
+    f.mi_addblocklabel(coil2_positions[0][0], coil2_positions[0][1])
+    circ_pattern([coil2_positions[0][0], coil2_positions[0][1]], slot_angle, 5, -1, coil2_positions)
 
-# Add magnet positions
-f.mi_addblocklabel(magnet_positions[0][0], magnet_positions[0][1])
-circ_pattern([magnet_positions[0][0], magnet_positions[0][1]], magnet_angle, int(POLES) - 1, 1, magnet_positions)
-setup_magnets(magnet_positions, magnet_angle)
+    # Set up the coils
+    setup_coils(coil1_positions, coil2_positions, circ_names)
 
-# Add coil1 positions
-f.mi_addblocklabel(coil1_positions[0][0], coil1_positions[0][1])
-circ_pattern([coil1_positions[0][0], coil1_positions[0][1]], slot_angle, 5, -1, coil1_positions)
+    return bc_properties, magnet_positions, rotor_position
 
-# Add coil2 positions
-f.mi_addblocklabel(coil2_positions[0][0], coil2_positions[0][1])
-circ_pattern([coil2_positions[0][0], coil2_positions[0][1]], slot_angle, 5, -1, coil2_positions)
-
-# Set up the coils
-setup_coils(coil1_positions, coil2_positions, circ_names)
-
+#Set up the model
+bc_properties, magnet_positions, rotor_position = setup_model()
 
 # Run the simulation
 f.mi_saveas('temp.fem')
 
-"""
-f.mi_analyze()
-f.mi_loadsolution()
-
-# Setup post processor
-f.mo_hidecontourplot()
-f.mo_zoom(-STATOR_ID, -STATOR_ID, STATOR_ID, STATOR_ID)
-f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
-
-# Calculate Torque
-f.mo_selectblock(rotor_position[0], rotor_position[1])
-for i in range(len(magnet_positions)):
-    f.mo_selectblock(magnet_positions[i][0], magnet_positions[i][1])
-torque = f.mo_blockintegral(22)
-f.mo_clearblock()
-print("Torque is {:.4f} N-m".format(torque))
-print(f.mo_getcircuitproperties(circ_names[0])) #*[0;0;1]  
-f.mo_close()"""
-
 # Calculate torque from 0 to 90 degrees in 10 degree intervals
-for i in range(40,45,5):
-    f.mi_modifyboundprop(bc_properties[1], 11, i*math.pi/180)
+for i in range(0,100,1):
+    f.mi_modifyboundprop(bc_properties[1], 11, float(i/2))
     f.mi_analyze()
     f.mi_loadsolution()
 
     # Setup post processor
     f.mo_hidecontourplot()
-    f.mo_zoom(-STATOR_ID, -STATOR_ID, STATOR_ID, STATOR_ID)
-    f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
+    #f.mo_zoom(-STATOR_ID, -STATOR_ID, STATOR_ID, STATOR_ID)
+    #f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
 
     f.mo_selectblock(rotor_position[0], rotor_position[1])
     for j in range(len(magnet_positions)):
@@ -247,8 +227,9 @@ for i in range(40,45,5):
 
     torque = f.mo_blockintegral(22)
     f.mo_clearblock()
-    print("Torque is {:.4f} N-m ".format(torque)) 
-    print("for {:.1f} degrees\n".format(i))
-    input(0)
+    print("{:.1f}\t".format(float(i/2)) + "{:.4f}\n".format(torque))
+#    print("Torque is {:.4f} N-m ".format(torque)) 
+#    print("for {:.1f} degrees\n".format(i))
     f.mo_close()
+
 f.mi_close()

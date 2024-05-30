@@ -43,7 +43,7 @@
     <Mu_ssd> = 0
     <Sigma_ssd> = 0
     <innerangle> = 0
-    <outerangle> = 0.69813170079773179
+    <outerangle> = 0.5
   <EndBdry>
 [BlockProps]  = 5
   <BeginBlock>
