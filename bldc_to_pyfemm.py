@@ -17,7 +17,6 @@ PHASE_C = params[7].split(',')[1][1:]
 
 ### Get BLDC dimensions
 FILENAME = "36_38_20_122_4_0.9_2_1.5_3_10_3_0.75_3_slidingband"
-# FILENAME = "72_76_20_300_4_0.9_2_1.5_6_10_6_0.75_3"
 properties = FILENAME.split("_")
 
 SLOTS = int(properties[0])
@@ -93,7 +92,7 @@ def setup_coils(coilA_positions: list, coilB_positions: list, circ_prop: list):
 
 def setup_model():  
     # Initialize FEMM Magnetic Problem
-    f.openfemm(1)
+    f.openfemm()
     print("Running...")
     f.newdocument(0)
     f.mi_probdef(0, 'millimeters', 'planar', 1E-8, 20, 45)
@@ -114,7 +113,7 @@ def setup_model():
     # Setup Boundaries
     bc_properties = ['A = 0', 'slidingBand']
     f.mi_addboundprop(bc_properties[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    f.mi_addboundprop(bc_properties[1], 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0)
+    f.mi_addboundprop(bc_properties[1], 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 10)
 
     # Define the position of the stator, rotor, magnet, and coils
     magnet_angle = 2 * math.pi / POLES
@@ -212,44 +211,25 @@ bc_properties, magnet_positions, rotor_position = setup_model()
 f.mi_saveas('temp.fem')
 
 f.mi_analyze()
-#f.mi_loadsolution()
 
-# Setup post processor
-#f.mo_hidecontourplot()
-#f.mo_zoom(-STATOR_ID, -STATOR_ID, STATOR_ID, STATOR_ID)
-#f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
-"""
-f.mo_selectblock(rotor_position[0], rotor_position[1])
-for j in range(len(magnet_positions)):
-    f.mo_selectblock(magnet_positions[j][0], magnet_positions[j][1])
-
-torque = f.mo_blockintegral(22)
-f.mo_clearblock()
-#    print("Torque is {:.4f} N-m ".format(torque)) 
-#    print("for {:.1f} degrees\n".format(i))"""
-#f.mo_close()
-
-"""
-# Calculate torque from 0 to 90 degrees in 10 degree intervals
-for i in range(0,100,1):
-    f.mi_modifyboundprop(bc_properties[1], 11, float(i/2))
-    f.mi_analyze()
+if (True):
     f.mi_loadsolution()
 
     # Setup post processor
     f.mo_hidecontourplot()
-    #f.mo_zoom(-STATOR_ID, -STATOR_ID, STATOR_ID, STATOR_ID)
-    #f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
+    f.mo_zoom(-STATOR_ID, -STATOR_ID, STATOR_ID, STATOR_ID)
+    f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
 
+    #Select blocks for Torque
     f.mo_selectblock(rotor_position[0], rotor_position[1])
     for j in range(len(magnet_positions)):
         f.mo_selectblock(magnet_positions[j][0], magnet_positions[j][1])
 
     torque = f.mo_blockintegral(22)
+    print("Torque is {:2.4f} N-m ".format(torque)) 
+    input(0)
     f.mo_clearblock()
-    print("{:.1f}\t".format(float(i/2)) + "{:.4f}\n".format(torque))
-#    print("Torque is {:.4f} N-m ".format(torque)) 
-#    print("for {:.1f} degrees\n".format(i))
+    #print("for {:.1f} degrees\n".format(i))
     f.mo_close()
-"""
+
 f.mi_close()
