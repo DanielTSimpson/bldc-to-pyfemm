@@ -30,7 +30,7 @@ TOOTH_OVERHANG = float(properties[7])
 TOOTH_WIDTH = float(properties[8])
 MAGNET_WIDTH = float(properties[9])
 MAGNET_THK = float(properties[10])
-MAGNET_STATOR_GAP = float(properties[11])
+AIR_GAP = float(properties[11])
 ROTOR_THK = float(properties[12])
 
 ### Name global params
@@ -116,7 +116,7 @@ def setup_model():
 
     # Setup Boundaries
     f.mi_addboundprop(bc_properties[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    f.mi_addboundprop(bc_properties[1], 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 10)
+    f.mi_addboundprop(bc_properties[1], 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0)
 
 def define_positions():
     # Define the position of the stator, rotor, magnet, and coils
@@ -126,15 +126,15 @@ def define_positions():
 
     outer_air_position = [0, 2 * STATOR_ID - 1]
     stator_air_position = [0, STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT]
-    rotor_air_position = [0, -(STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP)]
-    no_mesh_position = [0, STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + 0.3]
+    rotor_air_position = [0, STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + AIR_GAP]
+    no_mesh_position = [0, STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + AIR_GAP / 2]
     
     stator_position = [0, STATOR_ID / 2 + STATOR_BASE / 2]
     rotor_position = [0,
-                    STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP
+                    STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + AIR_GAP
                     + MAGNET_THK + ROTOR_THK / 2]
     magnet_positions = [[0,
-                        STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP
+                        STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + AIR_GAP
                         + MAGNET_THK / 2]]
     slot_position = [-slot_r * math.sin(5 * slot_angle / 2), slot_r * math.cos(5 * slot_angle / 2)]
     coil1_positions = [[slot_position[0] - (TOOTH_WIDTH + WIRE_DIA) / 2 * math.cos(5 * slot_angle / 2),
@@ -209,7 +209,6 @@ def setup_positions(outer_air_position, rotor_air_position, stator_air_position,
 
     # Set up the coils
     setup_coils(coil1_positions, coil2_positions, circ_names)
-
     return magnet_positions, rotor_position
 
 #Set up the model
@@ -218,8 +217,8 @@ outer_air_position, rotor_air_position, stator_air_position, no_mesh_position, s
 setup_positions(outer_air_position, rotor_air_position, stator_air_position, no_mesh_position, stator_position, magnet_angle, slot_angle, coil1_positions, coil2_positions)
 
 # Run the simulation
-#f.mi_saveas('StatorFEMM.fem')
-f.mi_saveas('temp.fem')
+f.mi_saveas('StatorFEMM.fem')
+#f.mi_saveas('temp.fem')
 
 f.mi_analyze()
 
