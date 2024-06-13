@@ -16,7 +16,7 @@ PHASE_B = params[6].split(',')[1][1:]
 PHASE_C = params[7].split(',')[1][1:]
 
 ### Get BLDC dimensions
-FILENAME = "36_38_20_122_4_0.9_2_1.5_3_10_3_0.75_3_partial"
+FILENAME = "36_38_20_122_4_0.9_2_1.5_3_10_3_0.75_3_slidingband"
 properties = FILENAME.split("_")
 
 SLOTS = int(properties[0])
@@ -35,7 +35,7 @@ ROTOR_THK = float(properties[12])
 
 ### Name global params
 circ_names = ['Phase A', 'Phase B', 'Phase C']
-bc_properties = ['A = 0', 'slidingBand']
+bc_properties = ['A = 0', 'slidingBand', 'periodic1', 'periodic2', 'periodic3', 'periodic4']
 
 def circ_pattern(start_pos: list, angle: float, num_copies: int, direction: int, save_array: list = None):
     """
@@ -45,6 +45,7 @@ def circ_pattern(start_pos: list, angle: float, num_copies: int, direction: int,
     :param num_copies: the number of copies
     :param direction: the direction of the circular pattern. +1 for clockwise, -1 for counterclockwise
     :param save_array: optional list to save block label positions to
+    :param start_angl: the starting angle for the circular pattern
     """
     radius = math.pow(math.pow(start_pos[0], 2) + math.pow(start_pos[1], 2), 0.5)
     phi_0 = math.acos(start_pos[0] / radius)
@@ -56,12 +57,19 @@ def circ_pattern(start_pos: list, angle: float, num_copies: int, direction: int,
             save_array.append([x, y])
 
 def setup_magnets(positions: list, magnet_angl: float):
+    """
+    Sets the direction of each rotor magnet
+    :param positions: a list of magnet positions
+    :param magnet_angl: the angle between rotor magnets
+    :param start_angl: the starting angle for the pattern
+    """
     for i in range(len(positions)):
         f.mi_selectlabel(positions[i][0], positions[i][1])
+        phi = math.degrees(-math.atan(positions[i][0]/positions[i][1]))
         if i % 2 == 0:
-            f.mi_setblockprop(MAGNET, 1, 0, '', 90 + i * (magnet_angl * 180 / math.pi))
+            f.mi_setblockprop(MAGNET, 1, 0, '', 90 + phi)
         else:
-            f.mi_setblockprop(MAGNET, 1, 0, '', 270 + i * (magnet_angl * 180 / math.pi))
+            f.mi_setblockprop(MAGNET, 1, 0, '', -90 + phi)
         f.mi_clearselected()
 
 def setup_coils(coilA_positions: list, coilB_positions: list, circ_prop: list):
@@ -99,7 +107,7 @@ def setup_model():
     f.openfemm()
     print("Running...")
     f.newdocument(0)
-    f.mi_probdef(0, 'millimeters', 'planar', 1E-8, 20, 45)
+    f.mi_probdef(0, 'millimeters', 'planar', 1E-8, 20, 18)
     f.mi_readdxf("Input DXFs/" + FILENAME + ".dxf")
     f.mi_zoomnatural()
 
@@ -117,6 +125,7 @@ def setup_model():
     # Setup Boundaries
     f.mi_addboundprop(bc_properties[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     f.mi_addboundprop(bc_properties[1], 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0)
+    # note: additional periodic bcs are setup in setup_periodic_bcs()
 
 def define_positions():
     # Define the position of the stator, rotor, magnet, and coils
@@ -124,18 +133,18 @@ def define_positions():
     slot_r = STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA / 2
     slot_angle = 2 * math.pi / SLOTS
 
-    outer_air_position = [0, 2 * STATOR_ID - 1]
+    outer_air_position = [0, STATOR_ID - 1]
     stator_air_position = [0, STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT]
     rotor_air_position = [0, STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + AIR_GAP]
     no_mesh_position = [0, STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + AIR_GAP / 2]
     
     stator_position = [0, STATOR_ID / 2 + STATOR_BASE / 2]
-    rotor_position = [0,
-                    STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + AIR_GAP
-                    + MAGNET_THK + ROTOR_THK / 2]
-    magnet_positions = [[0,
-                        STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + AIR_GAP
-                        + MAGNET_THK / 2]]
+    rotor_position = [0, STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + AIR_GAP + MAGNET_THK + ROTOR_THK / 2]
+
+    r_magnet = STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + AIR_GAP + MAGNET_THK / 2
+    phi0_magnet = -3*magnet_angle*0
+    magnet_positions = [[r_magnet * math.sin(phi0_magnet), r_magnet * math.cos(phi0_magnet)]]
+    
     slot_position = [-slot_r * math.sin(5 * slot_angle / 2), slot_r * math.cos(5 * slot_angle / 2)]
     coil1_positions = [[slot_position[0] - (TOOTH_WIDTH + WIRE_DIA) / 2 * math.cos(5 * slot_angle / 2),
                         slot_position[1] - (TOOTH_WIDTH + WIRE_DIA) / 2 * math.sin(5 * slot_angle / 2)]]
@@ -143,7 +152,7 @@ def define_positions():
                         slot_position[1] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.sin(5 * slot_angle / 2)]]
     return outer_air_position, rotor_air_position, stator_air_position, no_mesh_position, stator_position, rotor_position, magnet_angle, magnet_positions, slot_angle, coil1_positions, coil2_positions
     
-def setup_positions(outer_air_position, rotor_air_position, stator_air_position, no_mesh_position, stator_position, magnet_angle, slot_angle, coil1_positions, coil2_positions):
+def setup_positions():
     # Add air position & set material
     f.mi_addblocklabel(outer_air_position[0], outer_air_position[1])
     f.mi_addblocklabel(rotor_air_position[0], rotor_air_position[1])
@@ -166,8 +175,8 @@ def setup_positions(outer_air_position, rotor_air_position, stator_air_position,
     f.mi_setarcsegmentprop(0, bc_properties[1], 0, 0)
     f.mi_clearselected()
 
-    f.mi_selectarcsegment(stator_air_position[0], stator_air_position[1]+1)
-    f.mi_selectarcsegment(stator_air_position[0], stator_air_position[1]-1)
+    f.mi_selectarcsegment(rotor_air_position[0], -rotor_air_position[1]+1)
+    f.mi_selectarcsegment(rotor_air_position[0], -rotor_air_position[1]-1)
     f.mi_setarcsegmentprop(0, bc_properties[1], 0, 0)
     f.mi_clearselected()
 
@@ -194,9 +203,7 @@ def setup_positions(outer_air_position, rotor_air_position, stator_air_position,
 
     # Add magnet positions
     f.mi_addblocklabel(magnet_positions[0][0], magnet_positions[0][1])
-    circ_pattern([magnet_positions[0][0], magnet_positions[0][1]], magnet_angle, 3, 1, magnet_positions)
-    circ_pattern([magnet_positions[0][0], magnet_positions[0][1]], magnet_angle, 3, -1, magnet_positions)
-    input(0)
+    circ_pattern([magnet_positions[0][0], magnet_positions[0][1]], magnet_angle, 38, -1, magnet_positions)
     setup_magnets(magnet_positions, magnet_angle)
 
     # Add coil1 positions
@@ -211,35 +218,63 @@ def setup_positions(outer_air_position, rotor_air_position, stator_air_position,
     setup_coils(coil1_positions, coil2_positions, circ_names)
     return magnet_positions, rotor_position
 
+def setup_periodic_bcs():
+    # Establish Periodic BCs
+    f.mi_addboundprop(bc_properties[2], 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0)
+    f.mi_addboundprop(bc_properties[3], 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0)
+    f.mi_addboundprop(bc_properties[4], 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0)
+    f.mi_addboundprop(bc_properties[5], 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0)
+    
+    partl_angl = 3.5*magnet_angle
+
+    # Setup periodic boundary condition 1
+    f.mi_selectsegment(stator_air_position[0] - stator_air_position[1] * math.sin(partl_angl), stator_air_position[1] * math.cos(partl_angl))
+    f.mi_selectsegment(stator_air_position[0] + stator_air_position[1] * math.sin(partl_angl), stator_air_position[1] * math.cos(partl_angl))
+    f.mi_setsegmentprop(bc_properties[2], 0, 0, 0, 0)
+    f.mi_clearselected()
+
+    # Setup periodic boundary condition 2
+    f.mi_selectsegment(rotor_air_position[0] - rotor_air_position[1] * math.sin(partl_angl), rotor_air_position[1] * math.cos(partl_angl))
+    f.mi_selectsegment(rotor_air_position[0] + rotor_air_position[1] * math.sin(partl_angl), rotor_air_position[1] * math.cos(partl_angl))
+    f.mi_setsegmentprop(bc_properties[3], 0, 0, 0, 0)
+    f.mi_clearselected()
+
+    # Setup periodic boundary condition 3
+    f.mi_selectsegment(rotor_position[0] - rotor_position[1] * math.sin(partl_angl), rotor_position[1] * math.cos(partl_angl))
+    f.mi_selectsegment(rotor_position[0] + rotor_position[1] * math.sin(partl_angl), rotor_position[1] * math.cos(partl_angl))
+    f.mi_setsegmentprop(bc_properties[4], 0, 0, 0, 0)
+    f.mi_clearselected()
+
+    # Setup periodic boundary condition 4
+    f.mi_selectsegment(outer_air_position[0] - outer_air_position[1] * math.sin(partl_angl), outer_air_position[1] * math.cos(partl_angl))
+    f.mi_selectsegment(outer_air_position[0] + outer_air_position[1] * math.sin(partl_angl), outer_air_position[1] * math.cos(partl_angl))
+    f.mi_setsegmentprop(bc_properties[5], 0, 0, 0, 0)
+    f.mi_clearselected()
+
 #Set up the model
 setup_model()
 outer_air_position, rotor_air_position, stator_air_position, no_mesh_position, stator_position, rotor_position, magnet_angle, magnet_positions, slot_angle, coil1_positions, coil2_positions = define_positions()
-setup_positions(outer_air_position, rotor_air_position, stator_air_position, no_mesh_position, stator_position, magnet_angle, slot_angle, coil1_positions, coil2_positions)
+setup_positions()
+#setup_periodic_bcs()
 
-# Run the simulation
-f.mi_saveas('StatorFEMM.fem')
-#f.mi_saveas('temp.fem')
-
+# Run the simulation    
+f.mi_saveas('temp.fem')
 f.mi_analyze()
+f.mi_loadsolution()
 
-if (True):
-    f.mi_loadsolution()
+# Setup post processor
+f.mo_hidecontourplot()
+f.mo_zoom(-STATOR_ID, -STATOR_ID, STATOR_ID, STATOR_ID)
+f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
 
-    # Setup post processor
-    f.mo_hidecontourplot()
-    f.mo_zoom(-STATOR_ID, -STATOR_ID, STATOR_ID, STATOR_ID)
-    f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
-
-    #Select blocks for Torque
-    f.mo_selectblock(rotor_position[0], rotor_position[1])
-    for j in range(len(magnet_positions)):
-        f.mo_selectblock(magnet_positions[j][0], magnet_positions[j][1])
-
-    torque = f.mo_blockintegral(22)
-    print("Torque is {:2.4f} N-m ".format(torque)) 
-    input(0)
-    f.mo_clearblock()
-    #print("for {:.1f} degrees\n".format(i))
-    f.mo_close()
-
+#Select blocks for Torque
+f.mo_selectblock(rotor_position[0], rotor_position[1])
+for j in range(len(magnet_positions)):
+    f.mo_selectblock(magnet_positions[j][0], magnet_positions[j][1])
+torque = f.mo_blockintegral(22)
+print("Torque is {:2.4f} N-m ".format(torque)) 
+f.mo_clearblock()
+#print("for {:.1f} degrees\n".format(i))
+input(0)
+f.mo_close()
 f.mi_close()
