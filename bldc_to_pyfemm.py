@@ -16,7 +16,7 @@ PHASE_B = params[6].split(',')[1][1:]
 PHASE_C = params[7].split(',')[1][1:]
 
 ### Get BLDC dimensions
-FILENAME = "36_38_20_122_4_0.9_2_1.5_3_10_3_0.75_3_slidingband"
+FILENAME = "36_38_20_122_4_0.9_2_1.5_3_10_3_0.75_3_partial"
 properties = FILENAME.split("_")
 
 SLOTS = int(properties[0])
@@ -32,6 +32,10 @@ MAGNET_WIDTH = float(properties[9])
 MAGNET_THK = float(properties[10])
 MAGNET_STATOR_GAP = float(properties[11])
 ROTOR_THK = float(properties[12])
+
+### Name global params
+circ_names = ['Phase A', 'Phase B', 'Phase C']
+bc_properties = ['A = 0', 'slidingBand']
 
 def circ_pattern(start_pos: list, angle: float, num_copies: int, direction: int, save_array: list = None):
     """
@@ -105,25 +109,26 @@ def setup_model():
     f.mi_getmaterial(ROTOR)
     f.mi_getmaterial(STATOR)
     f.mi_getmaterial(COIL)
-    circ_names = ['Phase A', 'Phase B', 'Phase C']
+
     f.mi_addcircprop(circ_names[0], PHASE_A, 1)
     f.mi_addcircprop(circ_names[1], PHASE_B, 1)
     f.mi_addcircprop(circ_names[2], PHASE_C, 1)
 
     # Setup Boundaries
-    bc_properties = ['A = 0', 'slidingBand']
     f.mi_addboundprop(bc_properties[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     f.mi_addboundprop(bc_properties[1], 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 10)
 
+def define_positions():
     # Define the position of the stator, rotor, magnet, and coils
     magnet_angle = 2 * math.pi / POLES
     slot_r = STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA / 2
     slot_angle = 2 * math.pi / SLOTS
 
     outer_air_position = [0, 2 * STATOR_ID - 1]
-    stator_air_position = [STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT, 0]
-    rotor_air_position = [-(STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP), 0]
-    no_mesh_position = [STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + 0.3, 0]
+    stator_air_position = [0, STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT]
+    rotor_air_position = [0, -(STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP)]
+    no_mesh_position = [0, STATOR_ID / 2 + STATOR_BASE + NUMBER_WINDINGS * WIRE_DIA + TOOTH_HEIGHT + 0.3]
+    
     stator_position = [0, STATOR_ID / 2 + STATOR_BASE / 2]
     rotor_position = [0,
                     STATOR_ID / 2 + STATOR_BASE + float(NUMBER_WINDINGS) * WIRE_DIA + TOOTH_HEIGHT + MAGNET_STATOR_GAP
@@ -136,7 +141,9 @@ def setup_model():
                         slot_position[1] - (TOOTH_WIDTH + WIRE_DIA) / 2 * math.sin(5 * slot_angle / 2)]]
     coil2_positions = [[slot_position[0] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.cos(5 * slot_angle / 2),
                         slot_position[1] + (TOOTH_WIDTH + WIRE_DIA) / 2 * math.sin(5 * slot_angle / 2)]]
-
+    return outer_air_position, rotor_air_position, stator_air_position, no_mesh_position, stator_position, rotor_position, magnet_angle, magnet_positions, slot_angle, coil1_positions, coil2_positions
+    
+def setup_positions(outer_air_position, rotor_air_position, stator_air_position, no_mesh_position, stator_position, magnet_angle, slot_angle, coil1_positions, coil2_positions):
     # Add air position & set material
     f.mi_addblocklabel(outer_air_position[0], outer_air_position[1])
     f.mi_addblocklabel(rotor_air_position[0], rotor_air_position[1])
@@ -187,7 +194,9 @@ def setup_model():
 
     # Add magnet positions
     f.mi_addblocklabel(magnet_positions[0][0], magnet_positions[0][1])
-    circ_pattern([magnet_positions[0][0], magnet_positions[0][1]], magnet_angle, int(POLES) - 1, 1, magnet_positions)
+    circ_pattern([magnet_positions[0][0], magnet_positions[0][1]], magnet_angle, 3, 1, magnet_positions)
+    circ_pattern([magnet_positions[0][0], magnet_positions[0][1]], magnet_angle, 3, -1, magnet_positions)
+    input(0)
     setup_magnets(magnet_positions, magnet_angle)
 
     # Add coil1 positions
@@ -201,10 +210,12 @@ def setup_model():
     # Set up the coils
     setup_coils(coil1_positions, coil2_positions, circ_names)
 
-    return bc_properties, magnet_positions, rotor_position
+    return magnet_positions, rotor_position
 
 #Set up the model
-bc_properties, magnet_positions, rotor_position = setup_model()
+setup_model()
+outer_air_position, rotor_air_position, stator_air_position, no_mesh_position, stator_position, rotor_position, magnet_angle, magnet_positions, slot_angle, coil1_positions, coil2_positions = define_positions()
+setup_positions(outer_air_position, rotor_air_position, stator_air_position, no_mesh_position, stator_position, magnet_angle, slot_angle, coil1_positions, coil2_positions)
 
 # Run the simulation
 #f.mi_saveas('StatorFEMM.fem')
