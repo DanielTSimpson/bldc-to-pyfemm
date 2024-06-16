@@ -226,6 +226,7 @@ setup_positions()
 
 # Run the simulation    
 f.mi_saveas('StatorFEMM.fem')
+"""
 f.mi_analyze()
 f.mi_loadsolution()
 
@@ -241,64 +242,73 @@ for j in range(len(magnet_positions)):
 torque = f.mo_blockintegral(22)
 print("Torque is {:2.4f} N-m ".format(torque)) 
 f.mo_clearblock()
-#print("for {:.1f} degrees\n".format(i))
+#print("for {:.1f} degrees\n".format(i))"""
 
 ####################################
 ###     Transient Code Below     ###
 ####################################
 
-dt = 0.1
-t = [round(dt * x,  3) for x in range(0, int(10/dt) + 1)]
+dt = 0.01
+t = [dt*x for x in range(0, 100)]
 x = np.array([1, 0, 0])
-omega = 2000
+omega = 2000/60*360 #degrees per second
 theta_0 = 0
 v_0 = np.array([7, 0, 0])
 R_phase = 0.08469184 * np.identity(3) # Gotten from the resistance of the coil
 R_load = 6.6 #IDK why, but Meeker has an R_load in his simulink shtuff 
-torques = np.zeros([3,1])
+torques = np.zeros((3,1))
+dxdt = np.zeros((3,1))
 
+"""
 for i in range(len(t)):
-    f.mi_setprevious('StatorFEMM.ans',1)
+    angl = omega*t[i] % 360
+    f.mi_modifyboundprop(bc_properties[1], 10, angl)
+    f.mi_analyze()
+    f.mi_loadsolution()
+    f.mo_zoom(-STATOR_ID/2, STATOR_ID/4, STATOR_ID/2, 3*STATOR_ID/4)
+    f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
+    f.mo_showcontourplot(20, -0.006, 0.006, 'real')
+    imagename = "Frame{}.png".format(round(i,1))
+    print("{} at {} degrees".format(imagename,angl))
+    f.mo_savebitmap(imagename)
+
+"""
+for i in range(len(t)):
     L =  np.zeros((3,3))
     k = np.zeros((3,1))
 
-    f.mi_modifyboundprop(bc_properties[1], 11, omega*t[i])
+    angl = omega*t[i] % 360
+    f.mi_modifyboundprop(bc_properties[1], 11, angl)
 
     for n in range (1,3):
-        f.mi_modifycircprop(circ_names[0],1,x[0]) # 3 - 2.5*n + 0.5*n*n
-        f.mi_modifycircprop(circ_names[1],1,x[1]) # -3 + 4*n - n*n
-        f.mi_modifycircprop(circ_names[2],1,x[2]) # 1 - 1.5*n + 0.5*n*n
-        f.mi_analyze
-        f.mi_loadsolution
+        f.mi_modifycircprop(circ_names[0],1,3 - 2.5*n + 0.5*n*n)
+        f.mi_modifycircprop(circ_names[1],1,-3 + 4*n - n*n)
+        f.mi_modifycircprop(circ_names[2],1,1 - 1.5*n + 0.5*n*n)
+        f.mi_analyze()
+        f.mi_loadsolution()
         k[n]   = f.mo_gapintegral(bc_properties[1],0)
         L[n][0] = f.mo_getcircuitproperties(circ_names[0])[2]
         L[n][1] = f.mo_getcircuitproperties(circ_names[1])[2]
         L[n][2] = f.mo_getcircuitproperties(circ_names[2])[2]
-    f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
-    input(0)
+
     torques = np.hstack((torques,k))
 
-    dxdt = (L/(v_0 - omega*np.transpose(k) - R_phase*x))
+    dxdt_i = (L/(v_0 - omega*np.transpose(k) - R_phase*x))
 
     #enforce y-connected motor
     U = np.identity(3) - np.ones(3)/3
-    dxdt = (U*dxdt).diagonal() # <----- I don't like the dimensions here but for now I will just force the matrix to be a 3x1
-    
-#    print("=======dxdt{:1.1f}=========".format(t[i]))
- #   print(dxdt)
 
-    #print("====================================")
-    v_0 = v_0 - R_load*(x + dxdt)
-    print("=======v0{:1.1f}=========".format(t[i]))
-    print(v_0)
-    #input(0)
+    dxdt_i = (U*dxdt_i).diagonal().reshape(-1, 1)
+    #print(dxdt_i)
+    dxdt = np.hstack((dxdt,dxdt_i)) # <----- I don't like the dimensions here but for now I will just force the matrix to be a 3x1
+
+    v_0 = v_0 - R_load * (x + np.dot((dxdt[:, i] - dxdt[:, i - 1]), (dxdt[:, i - 1] / 2 + dxdt[:, i] / 2)))  #Enforcing trapezoidal numerical integration with x being the scaling term
+    print("time {:1.2f}s at index {:d}".format(t[i],i))
+    #print(v_0)
 
 print(torques[1][1]-torques[1][len(torques[1])-1])
 plt.plot(t,torques[1][1:])
 plt.show()
-#torque = f.mo_gapintegral(bc_properties[1],0)
-#print(torque)
-#print("---")
 
 f.mo_close()
 f.mi_close()

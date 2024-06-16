@@ -212,13 +212,13 @@
 [CircuitProps]  = 3
   <BeginCircuit>
     <CircuitName> = "Phase A"
-    <TotalAmps_re> = 1
+    <TotalAmps_re> = 0
     <TotalAmps_im> = 0
     <CircuitType> = 1
   <EndCircuit>
   <BeginCircuit>
     <CircuitName> = "Phase B"
-    <TotalAmps_re> = 0
+    <TotalAmps_re> = 1
     <TotalAmps_im> = 0
     <CircuitType> = 1
   <EndCircuit>
