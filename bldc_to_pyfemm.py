@@ -37,7 +37,7 @@ ROTOR_THK = float(properties[12])
 
 ### Name global params
 circ_names = ['Phase A', 'Phase B', 'Phase C']
-bc_properties = ['A = 0', 'slidingBand']
+bc_properties = ['A = 0', 'slidingBand1','slidingBand2']
 
 def circ_pattern(start_pos: list, angle: float, num_copies: int, direction: int, save_array: list = None):
     """
@@ -127,6 +127,7 @@ def setup_model():
     # Setup Boundaries
     f.mi_addboundprop(bc_properties[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     f.mi_addboundprop(bc_properties[1], 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0)
+    f.mi_addboundprop(bc_properties[2], 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 0)
 
 def define_positions():
     # Define the position of the stator, rotor, magnet, and coils
@@ -178,7 +179,7 @@ def setup_positions():
 
     f.mi_selectarcsegment(rotor_air_position[0], -rotor_air_position[1]+1)
     f.mi_selectarcsegment(rotor_air_position[0], -rotor_air_position[1]-1)
-    f.mi_setarcsegmentprop(0, bc_properties[1], 0, 0)
+    f.mi_setarcsegmentprop(0, bc_properties[2], 0, 0)
     f.mi_clearselected()
 
     # Add & set no mesh zone
@@ -226,6 +227,7 @@ setup_positions()
 
 # Run the simulation    
 f.mi_saveas('StatorFEMM.fem')
+
 """
 f.mi_analyze()
 f.mi_loadsolution()
@@ -234,6 +236,7 @@ f.mi_loadsolution()
 f.mo_hidecontourplot()
 f.mo_zoom(-STATOR_ID, -STATOR_ID, STATOR_ID, STATOR_ID)
 f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
+
 
 #Select blocks for Torque
 f.mo_selectblock(rotor_position[0], rotor_position[1])
@@ -248,10 +251,10 @@ f.mo_clearblock()
 ###     Transient Code Below     ###
 ####################################
 
-dt = 0.01
+dt = 0.025
 t = [dt*x for x in range(0, 100)]
 x = np.array([1, 0, 0])
-omega = 2000/60*360 #degrees per second
+omega = 1*60 #degrees per second
 theta_0 = 0
 v_0 = np.array([7, 0, 0])
 R_phase = 0.08469184 * np.identity(3) # Gotten from the resistance of the coil
@@ -259,17 +262,18 @@ R_load = 6.6 #IDK why, but Meeker has an R_load in his simulink shtuff
 torques = np.zeros((3,1))
 dxdt = np.zeros((3,1))
 
-"""
 for i in range(len(t)):
     angl = omega*t[i] % 360
-    f.mi_modifyboundprop(bc_properties[1], 10, angl)
+    f.mi_modifyboundprop(bc_properties[1], 11, angl)
+    f.mi_modifyboundprop(bc_properties[2], 11, angl)
     f.mi_analyze()
     f.mi_loadsolution()
-    f.mo_zoom(-STATOR_ID/2, STATOR_ID/4, STATOR_ID/2, 3*STATOR_ID/4)
+    f.mo_zoom(-STATOR_ID, -STATOR_ID, STATOR_ID, STATOR_ID)
+    #f.mo_zoom(-STATOR_ID/2, -3*STATOR_ID/4, STATOR_ID/2, -STATOR_ID/4)
     f.mo_showdensityplot(1, 0, 2, 0, 'bmag')
     f.mo_showcontourplot(20, -0.006, 0.006, 'real')
     imagename = "Frame{}.png".format(round(i,1))
-    print("{} at {} degrees".format(imagename,angl))
+    print("{} at {:3.2f} degrees".format(imagename,angl))
     f.mo_savebitmap(imagename)
 
 """
@@ -309,6 +313,6 @@ for i in range(len(t)):
 print(torques[1][1]-torques[1][len(torques[1])-1])
 plt.plot(t,torques[1][1:])
 plt.show()
-
+"""
 f.mo_close()
 f.mi_close()
