@@ -43,7 +43,7 @@
     <Mu_ssd> = 0
     <Sigma_ssd> = 0
     <innerangle> = 0
-    <outerangle> = 1.1842105263157894
+    <outerangle> = 0
   <EndBdry>
   <BeginBdry>
     <BdryName> = "slidingBand2"
@@ -59,7 +59,7 @@
     <Mu_ssd> = 0
     <Sigma_ssd> = 0
     <innerangle> = 0
-    <outerangle> = 1.1842105263157894
+    <outerangle> = 0
   <EndBdry>
 [BlockProps]  = 5
   <BeginBlock>
@@ -228,7 +228,7 @@
 [CircuitProps]  = 3
   <BeginCircuit>
     <CircuitName> = "Phase A"
-    <TotalAmps_re> = 1
+    <TotalAmps_re> = 10
     <TotalAmps_im> = 0
     <CircuitType> = 1
   <EndCircuit>
